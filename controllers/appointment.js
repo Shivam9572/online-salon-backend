@@ -336,8 +336,8 @@ export const getUserAppointments = async (req, res) => {
             "custom_description",
           ],
           on: {
-            service_id: { [Op.col]: 'appointment.service_id' },
-            staff_id: { [Op.col]: 'appointment.staff_id' }
+            service_id: { [Op.col]: 'Appointment.service_id' },
+            staff_id: { [Op.col]: 'Appointment.staff_id' }
           },
           required: true,
           include: [{

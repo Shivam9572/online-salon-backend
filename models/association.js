@@ -45,7 +45,7 @@ Category.hasMany(ProviderCategory, { foreignKey: 'category_id' ,  onDelete: "CAS
   Provider.hasMany(ProviderCategory, { foreignKey: 'provider_id' ,  onDelete: "CASCADE",
   hooks: true,});
 ProviderCategory.belongsTo(Category, { foreignKey: 'category_id' });
-ProviderCategory.belongsTo(Provider, { foreignKey: 'provider_id' });
+ProviderCategory.belongsTo(Provider, { foreignKey: 'category_id' });
 
 // Provider ↔ Service
 
