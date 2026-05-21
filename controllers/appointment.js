@@ -609,11 +609,12 @@ export const setAppointmentStatus = async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const { status } = req.query;
-    if (status != "rejected" || status === "comfirmed" || "completed") {
-      const provider = await Provider.findOne({ where: { id } });
+    const provider = await Provider.findOne({ where: { id } });
       if (!provider) {
         return res.status(404).json({ success: false, message: "provider not found" });
       }
+    if (status == "rejected" || status === "comfirmed" || "completed") {
+      
       const appointment = await Appointment.findOne({
 
         where: {
@@ -645,6 +646,7 @@ export const setAppointmentStatus = async (req, res) => {
       await t.commit();
       return res.status(200).json({ success: true, message: "status changed successfull" })
     }
+    await t.rollback();
     res.status(429).json({ success: false, messgae: "invalid status" });
 
   } catch (error) {
