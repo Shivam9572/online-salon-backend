@@ -43,7 +43,7 @@ export const sendOTPEmail = async (to, otp) => {
 
 export const sendAppointmentStatusEmail = async (to, customerName, start_time, end_time, status, salonName, appointmentId) => {
   const formatDateTime = (date) => {
-    const d = new Date(date);
+    const d = new Date(date.getTime()-(5.5*60*60*1000));
     return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
