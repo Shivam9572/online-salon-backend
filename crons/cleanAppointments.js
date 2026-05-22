@@ -96,7 +96,7 @@ cron.schedule('1 0 * * *', cleanupPendingAppointments, {
 
 
 
-cron.schedule("*/2 * * * *", sendremainder, {
+cron.schedule("*/2 * * * *", sendRemainder, {
   timezone: "Asia/Kolkata"
 });
 
