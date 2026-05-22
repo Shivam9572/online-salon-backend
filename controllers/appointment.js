@@ -81,8 +81,8 @@ export const getAvailableSlots = async (req, res) => {
     providerClosingTime = providerClosingTime.map((s) => {
       return parseInt(s);
     });
-    let starttime = istToUtc(date, openH, openM); // 9:00 IST → 03:30 UTC
-    let endTime = istToUtc(date, closeH, closeM);
+    let starttime = istToUtc(date, providerOpeningTime[0], providerOpeningTime[1]); // 9:00 IST → 03:30 UTC
+    let endTime = istToUtc(date, providerClosingTime[0], providerClosingTime[1]);
 
     if (date.getDate() == nowDate.getDate() && nowDate.getTime() > endTime.getTime()) {
       return res.status(404).json({ success: false, message: "shop is now close" });
