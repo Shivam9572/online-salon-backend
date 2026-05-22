@@ -2,7 +2,7 @@
 
 import { Sequelize, Op, where } from "sequelize";
 
-import { Appointment, Provider, Service, Staff, Chair, User, ProviderService, Category ,Feedback} from "../models/association.js";
+import { Appointment, Provider, Service, Staff, Chair, User, ProviderService, Category, Feedback } from "../models/association.js";
 import db from "../config/DB.js";
 import razorpay from "../config/razoypay.js";
 import { createOrderId } from "../services/razorpay.js";
@@ -64,6 +64,14 @@ export const getAvailableSlots = async (req, res) => {
         return res.status(409).json({ success: false, message: "Appoinment not allow previous date" });
       }
     }
+    const istToUtc = (date, hours, minutes) => {
+      const d = new Date(date);
+      // IST = UTC + 5:30, toh UTC = IST - 5:30
+      d.setUTCHours(hours - 5, minutes - 30, 0, 0);
+      // Handle negative minutes/hours
+      return d;
+    };
+
     provider = provider.toJSON();
     let providerClosingTime = provider.closing_time.split(":");
     let providerOpeningTime = provider.opening_time.split(":");
@@ -73,61 +81,59 @@ export const getAvailableSlots = async (req, res) => {
     providerClosingTime = providerClosingTime.map((s) => {
       return parseInt(s);
     });
+    let starttime = istToUtc(date, openH, openM); // 9:00 IST → 03:30 UTC
+    let endTime = istToUtc(date, closeH, closeM);
 
-    if (date.getDate() == nowDate.getDate() && nowDate.getHours() > providerClosingTime[0]) {
+    if (date.getDate() == nowDate.getDate() && nowDate.getTime() > endTime.getTime()) {
       return res.status(404).json({ success: false, message: "shop is now close" });
     }
-    let starttime = new Date(date);
 
     if (date.getDate() == nowDate.getDate()) {
-
-      starttime.setHours(nowDate.getHours(), nowDate.getMinutes(), 0, 0);
-
-    } else {
-
-      starttime.setHours(providerOpeningTime[0], providerOpeningTime[1], 0, 0);
-
+      const nowUtc = new Date(); // new Date() hamesha UTC hota hai internally
+      if (nowUtc > starttime) starttime = nowUtc;
     }
 
-   
-    let endTime = date;
-
-    endTime.setHours(providerClosingTime[0], providerClosingTime[1], 0, 0);
-    starttime = new Date(starttime);
-    endTime = new Date(endTime );
     // ─── 7. Get booked appointments for that date ─────────────
     let bookedAppointments = await Appointment.findAll({
       where: {
         [Op.or]: [{ customer_id: customerId }, { staff_id: staffId }],
         status: { [Op.notIn]: ["cancelled", "completed"] },
-        start_time: { [Op.between]: [new Date(starttime.getTime()+(5.5*60*60*1000)), new Date(endTime.getTime()+(5.5*60*60*1000))] }
+        start_time: { [Op.between]: [starttime, endTime] }
       },
       attributes: ["start_time", "end_time"],
       order: [["start_time", "ASC"]]
     });
-  
+
 
     bookedAppointments = JSON.parse(JSON.stringify(bookedAppointments));
 
-      
+
     let timeSlots = [];
-    let initTime = starttime.getHours() * 60 + starttime.getMinutes();
-     
+    const toIST = (minutes) => minutes + 330;
+    let initTime = starttime.getUTCHours() * 60 + starttime.getUTCMinutes();
+
     bookedAppointments.map((t) => {
-      let start_time = new Date(t.start_time.toString());
-      let end_time = new Date(t.end_time.toString());
-      start_time=new Date(start_time.getTime()-(5.5*60*60*1000));
-      end_time=new Date(end_time.getTime()-(5.5*60*60*1000));
-      let start_hour = start_time.getHours();
-      let end_hour = end_time.getHours();
-      let start_minute = start_time.getMinutes() ;
-      let end_minute = end_time.getMinutes() ;
-      
+      let start_time = new Date(t.start_time);
+      let end_time = new Date(t.end_time);
+
+      let start_hour = start_time.getUTCHours();
+      let end_hour = end_time.getUTCHours();
+      let start_minute = start_time.getUTCMinutes();
+      let end_minute = end_time.getUTCMinutes();
+
       if (start_hour * 60 + start_minute - duration > initTime) {
 
+        
+
         timeSlots.push({
-          start: [parseInt(initTime / 60), initTime % 60],
-          end: [parseInt(((start_hour * 60) + start_minute - duration) / 60), ((start_hour * 60) + start_minute - duration) % 60]
+          start: [
+            parseInt(toIST(initTime) / 60),
+            toIST(initTime) % 60
+          ],
+          end: [
+            parseInt(toIST((start_hour * 60) + start_minute - duration) / 60),
+            toIST((start_hour * 60) + start_minute - duration) % 60
+          ]
         });
 
       }
@@ -136,9 +142,9 @@ export const getAvailableSlots = async (req, res) => {
     });
 
 
-    if (initTime < (providerClosingTime[0] * 60) + providerClosingTime[1] - duration) {
+    if (initTime < (providerClosingTime[0] * 60 + providerClosingTime[1] - 330) - duration) {
       timeSlots.push({
-        start: [parseInt(initTime / 60), initTime % 60],
+        start: [parseInt(toIST(initTime)  / 60), initTime % 60],
         end: [parseInt(((providerClosingTime[0] * 60) + providerClosingTime[1] - duration) / 60), ((providerClosingTime[0] * 60) + providerClosingTime[1] - duration) % 60]
       });
     }
@@ -323,10 +329,10 @@ export const getUserAppointments = async (req, res) => {
             "salonContact",
           ],
           as: "provider"
-        },{
-          model:Feedback,
-          attributes:["rating","comment"],
-          as:"feedback"
+        }, {
+          model: Feedback,
+          attributes: ["rating", "comment"],
+          as: "feedback"
         },
         {
           model: ProviderService,
@@ -559,10 +565,10 @@ export const getProviderAppointment = async (req, res) => {
         as: "customer"
 
       }, {
-        model:Feedback,
-        attributes:["rating","comment"],
-        as:"feedback"
-      },{
+        model: Feedback,
+        attributes: ["rating", "comment"],
+        as: "feedback"
+      }, {
         model: ProviderService,
         attributes: [
           "custom_price",
@@ -610,11 +616,11 @@ export const setAppointmentStatus = async (req, res) => {
     const { appointmentId } = req.params;
     const { status } = req.query;
     const provider = await Provider.findOne({ where: { id } });
-      if (!provider) {
-        return res.status(404).json({ success: false, message: "provider not found" });
-      }
+    if (!provider) {
+      return res.status(404).json({ success: false, message: "provider not found" });
+    }
     if (status == "rejected" || status === "comfirmed" || "completed") {
-      
+
       const appointment = await Appointment.findOne({
 
         where: {
@@ -636,10 +642,10 @@ export const setAppointmentStatus = async (req, res) => {
       }
       const appointDetails = JSON.parse(JSON.stringify(appointment));
 
-      
-      
+
+
       appointment.status = status;
-      await appointment.save({transaction:t});
+      await appointment.save({ transaction: t });
       await sendAppointmentStatusEmail(appointDetails.customer.email, appointDetails.customer.name, appointDetails.start_time, appointDetails.end_time, status,
         appointDetails.provider.salonName, appointmentId
       );

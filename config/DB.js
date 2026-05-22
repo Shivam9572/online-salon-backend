@@ -7,7 +7,10 @@ const db=new sequelize(process.env.MYSQLDATABASE,process.env.MYSQLUSER,process.e
     port:process.env.MYSQLPORT,
     dialect:"mysql",
     logging:false,
-    timezone:"+05:30"
+    timezone:"+00:00",
+    dialectOptions:{
+        timezone:"+00:00"
+    }
 });
 
 export default db;

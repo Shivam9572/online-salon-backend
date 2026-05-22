@@ -6,131 +6,78 @@ import { sendAppointmentReminderEmail } from '../services/mailer.js';
 // Run at 00:01:00 every day (1 minute past midnight)
 export const cleanupPendingAppointments = async () => {
   try {
-   
-    
-    // Get current date at midnight (start of today)
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0); // ✅ UTC midnight = IST 5:30 AM... 
     
-    // Find all pending appointments from previous dates
+    // Better — IST midnight UTC mein
+    // IST midnight = UTC 18:30 previous day
+    const istMidnightUTC = new Date();
+    istMidnightUTC.setUTCHours(18, 30, 0, 0); // IST 00:00 = UTC 18:30
+    
+    // Agar abhi UTC 18:30 se pehle hai toh kal ka 18:30 lo
+    if (new Date() < istMidnightUTC) {
+      istMidnightUTC.setUTCDate(istMidnightUTC.getUTCDate() - 1);
+    }
+
     const expiredAppointments = await Appointment.findAll({
       where: {
         status: 'pending',
-        start_time: {
-          [Op.lt]: today // Start time is before today
-        }
+        start_time: { [Op.lt]: istMidnightUTC } // ✅ IST aaj se pehle
       }
     });
 
-    if (expiredAppointments.length === 0) {
-      return;
-    }
+    if (expiredAppointments.length === 0) return;
 
-
-    // Delete or update status based on your requirement
-    // Option 1: Delete permanently
-    const deletedCount = await Appointment.destroy({
-      where: {
-        id: expiredAppointments.map(apt => apt.id)
-      }
+    await Appointment.destroy({
+      where: { id: expiredAppointments.map(apt => apt.id) }
     });
-
-    // Option 2: Update status to 'cancelled' instead of deleting
-    // const updatedCount = await Appointment.update(
-    //   { status: 'cancelled', updatedAt: new Date() },
-    //   {
-    //     where: {
-    //       id: expiredAppointments.map(apt => apt.id)
-    //     }
-    //   }
-    // );
-
-    
-   
 
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error in cleanup job:`, error);
   }
 };
-const sendremainder=async () => {
+const sendRemainder = async () => {
   try {
+    const now = new Date();                                    // UTC ✅
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000); // UTC ✅
 
-
-    // Current time
-    const now = new Date();
-
-    // Next 1 hour
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-     
-    // Find appointments between now and next 1 hour
     const appointments = await Appointment.findAll({
       where: {
-        status: {
-          [Op.in]: ["confirmed"]
-        },
-        sent_remainder:false,
+        status: { [Op.in]: ["confirmed"] },
+        sent_remainder: false,
         start_time: {
-          [Op.between]: [new Date(now.getTime()+(5.5*60*60*1000)), new Date(oneHourLater.getTime()+(5.5 * 60 *60 * 1000))]
+          [Op.between]: [now, oneHourLater] // ✅ Direct UTC compare, no offset
         }
       },
-
       include: [
-        {
-          model: User,
-          attributes: ["name", "email"],
-          as:"customer"
-        },
-
-        {
-          model: Provider,
-          attributes: ["salonName"],
-          as:"provider"
-        },
-
-        {
-          model: Staff,
-          attributes: ["name"],
-          as:"staff"
-        }
+        { model: User,     attributes: ["name", "email"], as: "customer" },
+        { model: Provider, attributes: ["salonName"],     as: "provider" },
+        { model: Staff,    attributes: ["name"],          as: "staff"    }
       ]
     });
 
-    if (appointments.length === 0) {
-     
-      return;
-    }
-
+    if (appointments.length === 0) return;
 
     for (const appointment of appointments) {
-
-      // Optional protection
-      // Avoid duplicate reminder emails
-      if (appointment.sent_remainder) {
-        continue;
-      }
+      if (appointment.sent_remainder) continue;
 
       await sendAppointmentReminderEmail(
         appointment.customer.email,
         appointment.customer.name,
         appointment.provider.salonName,
         appointment.staff.name,
-        appointment.start_time,
+        appointment.start_time, // UTC — email function mein IST convert karo
         appointment.end_time
       );
 
-
-      // Mark reminder as sent
       appointment.sent_remainder = true;
-
       await appointment.save();
     }
 
   } catch (error) {
-
     console.error("Reminder cron error:", error);
-
   }
-}
+};
 
 // Schedule cron job to run at 00:01:00 every day
 // Cron pattern: 1 0 * * *

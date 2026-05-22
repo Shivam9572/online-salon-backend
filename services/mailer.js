@@ -40,13 +40,20 @@ export const sendOTPEmail = async (to, otp) => {
 
   console.log("✅ Email sent to:", to);
 };
+export const formatToIST = (utcDate) => {
+  return new Date(utcDate).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "long", 
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+};
 
 export const sendAppointmentStatusEmail = async (to, customerName, start_time, end_time, status, salonName, appointmentId) => {
-  const formatDateTime = (date) => {
-    let d = new Date(date);
-    d=new Date(d.getTime()-(5.5*60*60*100));
-    return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  };
+  
 
   const statusMessages = {
     confirmed: 'has been confirmed',
@@ -103,8 +110,8 @@ export const sendAppointmentStatusEmail = async (to, customerName, start_time, e
             <!-- Appointment Details -->
             <div style="background: #f8f8f8; border-left: 4px solid ${statusColors[status] || '#c9a96e'}; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
               <h3 style="margin: 0 0 15px 0; color: #333;">📋 Appointment Details</h3>
-              <p style="margin: 8px 0;"><strong>📅 Date:</strong> ${formatDateTime(start_time)}</p>
-              <p style="margin: 8px 0;"><strong>⏰ Time:</strong> ${formatDateTime(start_time)} - ${new Date(end_time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+              <p style="margin: 8px 0;"><strong>📅 Date:</strong> ${formatToIST(start_time)}</p>
+              <p style="margin: 8px 0;"><strong>⏰ Time:</strong> ${formatToIST(start_time)} - ${formatToIST(end_time)}</p>
               <p style="margin: 8px 0;"><strong>📍 Salon:</strong> ${salonName}</p>
               <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
                 <span style="display: inline-block; padding: 4px 12px; background: ${statusColors[status]}20; color: ${statusColors[status]}; border-radius: 20px; font-size: 12px; font-weight: 500;">
@@ -147,24 +154,7 @@ export const sendAppointmentReminderEmail = async (
   end_time
 ) => {
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
+  
 
   const response = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
@@ -274,7 +264,7 @@ export const sendAppointmentReminderEmail = async (
                   text-align:right;
                   font-size:14px;
                 ">
-                  ${formatDate(start_time)}
+                  ${formatToIST(start_time)}
                 </td>
               </tr>
 
@@ -290,7 +280,7 @@ export const sendAppointmentReminderEmail = async (
                   text-align:right;
                   font-size:14px;
                 ">
-                  ${formatTime(start_time)} - ${formatTime(end_time)}
+                  ${formatToIST(start_time)} - ${formatToIST(end_time)}
                 </td>
               </tr>
             </table>
