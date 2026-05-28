@@ -57,7 +57,7 @@ export const loginUser = async (req, res) => {
         }
         const token = await generateToken(user);
         res.cookie("token", token, {
-            httpOnly: true,      // ❌ JS can't access (secure)
+            httpOnly: false,      // ❌ JS can't access (secure)
             secure: true,       // true in production (HTTPS)
             sameSite: "none",
             maxAge:7*24* 60 * 60 * 1000 // 1 hour
